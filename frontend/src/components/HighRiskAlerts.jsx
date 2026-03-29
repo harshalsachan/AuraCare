@@ -1,53 +1,82 @@
-import React, { useState } from 'react';
-import { AlertTriangle, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect ,useContext } from 'react';
+import { AlertCircle, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
+import { AuthContext } from './AuthContext';
+
+
 
 const HighRiskAlerts = () => {
-  // Mock data representing the top results pulled from the BST
-  const [alerts, setAlerts] = useState([
-    { id: 205, name: "Robert Smith", reason: "Declining Mobility AI Prediction", riskLevel: "Critical" },
-    { id: 310, name: "Eleanor Rigby", reason: "Missed 3 consecutive check-ins", riskLevel: "High" }
-  ]);
+  
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const { user } = useContext(AuthContext);
+
+  // This runs automatically when the Dashboard loads
+  useEffect(() => {
+    const fetchHighRiskPatients = async () => {
+      try {
+        // Fetch from our Python -> C++ Bridge!
+       const response = await axios.get(`http://localhost:5000/api/patients/high-risk?caretaker_id=${user.id}`);
+        setAlerts(response.data);
+      } catch (err) {
+        console.error("Error fetching alerts:", err);
+        setError('Failed to connect to the C++ Engine.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHighRiskPatients();
+  }, []); // The empty array means this only runs once when the component mounts
+
+  if (loading) {
+    return <div className="p-8 text-center text-slate-500 bg-white rounded-xl shadow-sm border border-slate-200">Syncing with C++ Engine...</div>;
+  }
+
+  if (error) {
+    return <div className="p-8 text-center text-red-500 bg-red-50 rounded-xl border border-red-200">{error}</div>;
+  }
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-red-100 overflow-hidden">
-      <div className="bg-red-50 px-6 py-4 border-b border-red-100 flex items-center gap-2">
-        <AlertTriangle className="w-5 h-5 text-red-600" />
-        <h2 className="text-lg font-semibold text-red-800">High-Risk Patients</h2>
+    <div className="bg-red-50/30 rounded-xl border border-red-100 overflow-hidden">
+      
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-red-100 flex items-center gap-2 bg-white">
+        <AlertCircle className="w-5 h-5 text-red-600" />
+        <h3 className="font-bold text-slate-800">High-Risk Patients</h3>
       </div>
       
-      <div className="p-0">
-        <ul className="divide-y divide-slate-100">
-          {alerts.map((patient) => (
-            <li key={patient.id} className="px-6 py-4 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="font-medium text-slate-800">{patient.name}</p>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    patient.riskLevel === 'Critical' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
-                  }`}>
-                    {patient.riskLevel}
-                  </span>
+      {/* Dynamic List from C++ */}
+      <div className="divide-y divide-red-50 bg-white">
+        {alerts.length === 0 ? (
+          <div className="p-6 text-center text-slate-500">No high-risk patients currently in the BST.</div>
+        ) : (
+          alerts.map((alert) => (
+            <Link 
+              key={alert.id}
+              to={`/patient/${alert.id}`} 
+              className="block p-5 hover:bg-slate-50 transition-colors group"
+            >
+              <div className="flex justify-between items-center">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <span className="font-semibold text-slate-800">{alert.name}</span>
+                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
+                      alert.riskLevel === 'Critical' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
+                    }`}>
+                      {alert.riskLevel}
+                    </span>
+                  </div>
+                  {/* Notice this reason will now say "Risk score assessed at X/100" from Python! */}
+                  <p className="text-sm text-slate-500 mt-1">{alert.reason}</p>
                 </div>
-                <p className="text-sm text-slate-500 mt-1">{patient.reason}</p>
+                <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-blue-500 group-hover:translate-x-1 transition-all" />
               </div>
-              
-              {/* This links to our dynamic /patient/:id route to fire the Hash Map lookup! */}
-              <Link 
-                to={`/patient/${patient.id}`}
-                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-colors"
-                title="View Profile"
-              >
-                <ArrowRight className="w-5 h-5" />
-              </Link>
-            </li>
-          ))}
-          {alerts.length === 0 && (
-            <div className="px-6 py-8 text-center text-slate-400">
-              No high-risk alerts at this time.
-            </div>
-          )}
-        </ul>
+            </Link>
+          ))
+        )}
       </div>
     </div>
   );

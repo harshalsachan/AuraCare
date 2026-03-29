@@ -1,177 +1,154 @@
-import React, { useState } from 'react';
-import { UserPlus, Save, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { UserPlus, AlertCircle, CheckCircle } from 'lucide-react';
+import axios from 'axios';
+import { AuthContext } from './AuthContext';
+
+
 
 const AddPatient = () => {
-  // State to hold our form data
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    age: '',
-    bloodType: 'A+',
-    weight: '',
-    initialRisk: 'Low'
-  });
+  const { user } = useContext(AuthContext);
+  const navigate = useNavigate();
+  
+  // Form State
+  const [patientId, setPatientId] = useState('');
+  const [name, setName] = useState('');
+  const [age, setAge] = useState('');
+  const [riskScore, setRiskScore] = useState('');
+  
+  // UI State
+  const [status, setStatus] = useState({ type: '', message: '' });
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
-
-  // Handle input changes
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
-
-  // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsSubmitting(true);
+    setIsLoading(true);
+    setStatus({ type: '', message: '' });
 
-    // Simulate sending data to the Python/C++ backend
-    setTimeout(() => {
-      console.log("Data sent to backend to be added to Hash Map & BST:", formData);
-      setIsSubmitting(false);
-      setSuccessMessage(`${formData.firstName} ${formData.lastName} has been successfully added to the system.`);
+    try {
+      // Send the data directly to our new Python endpoint
+     await axios.post('http://localhost:5000/api/patients', {
+  id: parseInt(patientId),
+  name: name,
+  age: parseInt(age),
+  riskScore: parseInt(riskScore),
+  caretakerId: user.id // <--- SEND THE ID
+});
+
+
+      setStatus({ type: 'success', message: `${name} has been added to the system.` });
       
-      // Reset form
-      setFormData({
-        firstName: '', lastName: '', age: '', bloodType: 'A+', weight: '', initialRisk: 'Low'
-      });
+      // Clear the form after success
+      setPatientId('');
+      setName('');
+      setAge('');
+      setRiskScore('');
 
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccessMessage(''), 3000);
-    }, 800);
+      // Optional: Automatically redirect back to dashboard after 2 seconds to see the result
+      setTimeout(() => navigate('/'), 2000);
+
+    } catch (error) {
+      console.error(error);
+      setStatus({ 
+        type: 'error', 
+        message: 'Failed to add patient. Ensure the backend is running.' 
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div className="max-w-3xl mx-auto space-y-6">
       <header className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-          <UserPlus className="w-8 h-8 text-blue-600" />
-          Register New Patient
-        </h1>
-        <p className="text-slate-500 mt-1">Enter patient details to create a new profile in the database.</p>
+        <h1 className="text-3xl font-bold text-slate-800">Register New Patient</h1>
+        <p className="text-slate-500 mt-1">Enter patient details to initialize them in the C++ tracking engine.</p>
       </header>
 
-      {successMessage && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-2">
-          <Save className="w-5 h-5" />
-          {successMessage}
-        </div>
-      )}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+        
+        {/* Status Messages */}
+        {status.message && (
+          <div className={`p-4 mb-6 rounded-lg flex items-center gap-2 text-sm font-medium ${
+            status.type === 'success' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+          }`}>
+            {status.type === 'success' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+            {status.message}
+          </div>
+        )}
 
-      <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          
-          {/* First Name */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">First Name</label>
-            <input 
-              type="text" 
-              name="firstName" 
-              value={formData.firstName} 
-              onChange={handleChange} 
-              required 
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder="Jane"
-            />
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            {/* Patient ID */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Patient ID Number</label>
+              <input 
+                type="number" 
+                required
+                value={patientId}
+                onChange={(e) => setPatientId(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="e.g. 405"
+              />
+            </div>
+
+            {/* Full Name */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Full Name</label>
+              <input 
+                type="text" 
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="Jane Doe"
+              />
+            </div>
+
+            {/* Age */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Age</label>
+              <input 
+                type="number" 
+                required
+                min="0"
+                max="120"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="65"
+              />
+            </div>
+
+            {/* Risk Score */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Initial Risk Score (0-100)</label>
+              <input 
+                type="number" 
+                required
+                min="0"
+                max="100"
+                value={riskScore}
+                onChange={(e) => setRiskScore(e.target.value)}
+                className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                placeholder="85"
+              />
+            </div>
           </div>
 
-          {/* Last Name */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Last Name</label>
-            <input 
-              type="text" 
-              name="lastName" 
-              value={formData.lastName} 
-              onChange={handleChange} 
-              required 
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder="Doe"
-            />
-          </div>
-
-          {/* Age */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Age</label>
-            <input 
-              type="number" 
-              name="age" 
-              value={formData.age} 
-              onChange={handleChange} 
-              required 
-              min="0"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder="e.g. 75"
-            />
-          </div>
-
-          {/* Weight */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Weight (kg)</label>
-            <input 
-              type="number" 
-              name="weight" 
-              value={formData.weight} 
-              onChange={handleChange} 
-              required 
-              min="0"
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-              placeholder="e.g. 68"
-            />
-          </div>
-
-          {/* Blood Type */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Blood Type</label>
-            <select 
-              name="bloodType" 
-              value={formData.bloodType} 
-              onChange={handleChange} 
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
+          <div className="pt-4 border-t border-slate-100 flex justify-end">
+            <button 
+              type="submit" 
+              disabled={isLoading}
+              className="flex items-center gap-2 bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-blue-400"
             >
-              {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
+              <UserPlus className="w-5 h-5" />
+              {isLoading ? 'Injecting to Engine...' : 'Register Patient'}
+            </button>
           </div>
-
-          {/* Initial Risk Level */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700 flex items-center gap-1">
-              Initial Risk Assessment
-              <AlertCircle className="w-4 h-4 text-slate-400" />
-            </label>
-            <select 
-              name="initialRisk" 
-              value={formData.initialRisk} 
-              onChange={handleChange} 
-              className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white"
-            >
-              <option value="Low">Low Risk</option>
-              <option value="Moderate">Moderate Risk</option>
-              <option value="High">High Risk</option>
-              <option value="Critical">Critical</option>
-            </select>
-          </div>
-
-        </div>
-
-        {/* Form Actions */}
-        <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end gap-4">
-          <button 
-            type="button" 
-            className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-50 transition-colors"
-          >
-            Cancel
-          </button>
-          <button 
-            type="submit" 
-            disabled={isSubmitting}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 disabled:bg-blue-400"
-          >
-            {isSubmitting ? 'Saving to Database...' : 'Save Patient Record'}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 };

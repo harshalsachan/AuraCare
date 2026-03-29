@@ -1,0 +1,23 @@
+# Node dependencies
+node_modules/
+dist/
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# C++ Build files
+*.o
+*.dll
+*.exe
+
+# Database (We don't want to push your local test data)
+*.db
+*.db-journal
+
+# VS Code
+.vscode/

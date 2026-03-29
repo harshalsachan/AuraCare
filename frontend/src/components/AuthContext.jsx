@@ -1,32 +1,25 @@
-import React, { createContext, useState, useEffect } from 'react';
+import React, { createContext, useState } from 'react';
 
-// Create the Context
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-
-  // When the app loads, check if we saved a user in the browser's memory
-  useEffect(() => {
+  // THE FIX: Synchronous Lazy Initialization. 
+  // React reads this instantly before the router makes any decisions.
+  const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem('vitaltrack_user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
+    return storedUser ? JSON.parse(storedUser) : null;
+  });
 
-  // Function to handle login
   const login = (userData) => {
     setUser(userData);
-    localStorage.setItem('vitaltrack_user', JSON.stringify(userData)); // Save to browser
+    localStorage.setItem('vitaltrack_user', JSON.stringify(userData)); 
   };
 
-  // Function to handle logout
   const logout = () => {
     setUser(null);
-    localStorage.removeItem('vitaltrack_user'); // Clear from browser
+    localStorage.removeItem('vitaltrack_user'); 
   };
 
-  // Function to update user profile (like adding a photo)
   const updateUser = (updates) => {
     const updatedUser = { ...user, ...updates };
     setUser(updatedUser);

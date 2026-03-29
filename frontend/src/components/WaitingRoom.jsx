@@ -1,42 +1,148 @@
-import React, { useState, useEffect } from 'react';
-import { Clock, CheckCircle } from 'lucide-react';
+import React, { useState, useEffect, useContext } from 'react';
+import { Clock, CheckCircle2, Plus, X } from 'lucide-react';
+import axios from 'axios';
+import { AuthContext } from './AuthContext'; // Import
+
+
 
 const WaitingRoom = () => {
-  // Mock data representing what the Python/C++ backend will send
-  const [queue, setQueue] = useState([
-    { id: 101, name: "Alice Johnson", task: "Check Morning Blood Pressure", time: "08:00 AM" },
-    { id: 104, name: "John Doe", task: "Administer Medication", time: "08:30 AM" },
-    { id: 108, name: "Martha Stewart", task: "Physical Therapy Routine", time: "09:15 AM" }
-  ]);
+  const { user } = useContext(AuthContext);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // State for the new task form
+  const [isAdding, setIsAdding] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+  const [newTime, setNewTime] = useState('');
+
+  const fetchTasks = async () => {
+    try {
+      const response = await axios.get(`http://localhost:5000/api/tasks?caretaker_id=${user.id}`);
+      setTasks(response.data);
+    } catch (err) {
+      console.error("Failed to fetch tasks", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  // Dequeue (Remove from front)
+  const handleCompleteNextTask = async () => {
+    try {
+      await axios.post(`http://localhost:5000/api/tasks/complete?task_id=${taskId}`);
+  fetchTasks();
+    } catch (err) {
+      console.error("Failed to complete task");
+    }
+  };
+
+  // Enqueue (Add to back)
+  const handleAddTask = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.post('http://localhost:5000/api/tasks', {
+  patientName: newName,
+  description: newDesc,
+  time: newTime,
+  caretakerId: user.id // <--- SEND ID
+});
+      // Clear the form and hide it
+      setNewName('');
+      setNewDesc('');
+      setNewTime('');
+      setIsAdding(false);
+      
+      // Refresh the queue!
+      fetchTasks();
+    } catch (err) {
+      console.error("Failed to add task");
+    }
+  };
+
+  if (loading) return <div className="p-8 text-center text-slate-500 bg-white rounded-xl shadow-sm border border-slate-200">Loading Queue...</div>;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-      <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-2">
-        <Clock className="w-5 h-5 text-blue-600" />
-        <h2 className="text-lg font-semibold text-slate-800">Waiting Room (Tasks)</h2>
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+      
+      {/* Header */}
+      <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Clock className="w-5 h-5 text-blue-600" />
+          <h3 className="font-bold text-slate-800">Waiting Room Queue</h3>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full">
+            {tasks.length} Pending
+          </span>
+          <button 
+            onClick={() => setIsAdding(!isAdding)}
+            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+          >
+            {isAdding ? <X className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
       
-      <div className="p-0">
-        <ul className="divide-y divide-slate-100">
-          {queue.map((patient, index) => (
-            <li key={patient.id} className="px-6 py-4 hover:bg-slate-50 flex items-center justify-between transition-colors">
+      {/* The Dynamic Queue List */}
+      <div className="divide-y divide-slate-50 flex-1 overflow-y-auto">
+        {tasks.length === 0 ? (
+          <div className="p-8 text-center text-slate-500">All caught up! Queue is empty.</div>
+        ) : (
+          tasks.map((task, index) => (
+            <div key={task.id} className="p-5 hover:bg-slate-50 transition-colors flex justify-between items-center group">
               <div>
-                <p className="font-medium text-slate-800">{patient.name}</p>
-                <p className="text-sm text-slate-500">{patient.task} • {patient.time}</p>
+                <h4 className="font-semibold text-slate-800">{task.patientName}</h4>
+                <p className="text-sm text-slate-500 mt-1">
+                  {task.description} • {task.time}
+                </p>
               </div>
-              <button className="text-sm flex items-center gap-1 bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 px-3 py-1.5 rounded-md transition-colors">
-                <CheckCircle className="w-4 h-4" />
-                Done
-              </button>
-            </li>
-          ))}
-          {queue.length === 0 && (
-            <div className="px-6 py-8 text-center text-slate-400">
-              No pending tasks. Great job!
+              
+              {/* FIFO Logic: Only the first task can be completed */}
+              {index === 0 && (
+                <button 
+                  onClick={handleCompleteNextTask}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 hover:bg-blue-600 hover:text-white rounded-lg transition-colors"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Complete Next
+                </button>
+              )}
             </div>
-          )}
-        </ul>
+          ))
+        )}
       </div>
+
+      {/* Inline Form to Add Tasks */}
+      {isAdding && (
+        <form onSubmit={handleAddTask} className="p-4 bg-slate-50 border-t border-slate-200 space-y-3">
+          <input 
+            type="text" required placeholder="Patient Name" 
+            value={newName} onChange={(e) => setNewName(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md outline-none focus:border-blue-500"
+          />
+          <input 
+            type="text" required placeholder="Task Description (e.g. Blood Draw)" 
+            value={newDesc} onChange={(e) => setNewDesc(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-slate-300 rounded-md outline-none focus:border-blue-500"
+          />
+          <div className="flex gap-2">
+            <input 
+              type="time" required 
+              value={newTime} onChange={(e) => setNewTime(e.target.value)}
+              className="flex-1 px-3 py-2 text-sm border border-slate-300 rounded-md outline-none focus:border-blue-500"
+            />
+            <button type="submit" className="px-4 py-2 bg-slate-800 text-white text-sm font-medium rounded-md hover:bg-slate-900 transition-colors">
+              Add Task
+            </button>
+          </div>
+        </form>
+      )}
+
     </div>
   );
 };
