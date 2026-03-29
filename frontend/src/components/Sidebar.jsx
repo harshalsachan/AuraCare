@@ -34,7 +34,7 @@ const Sidebar = () => {
       {/* Logo and App Title */}
       <div className="flex items-center gap-3 px-6 py-8 border-b border-slate-700">
         <HeartPulse className="w-8 h-8 text-blue-500" />
-        <h1 className="text-2xl font-bold tracking-wide text-white">VitalTrack</h1>
+        <h1 className="text-2xl font-bold tracking-wide text-white">AuraCare</h1>
       </div>
 
       {/* Main Navigation Links */}

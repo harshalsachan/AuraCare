@@ -12,7 +12,7 @@ const API = axios.create({
 });
 
 // ==========================================
-// VITALTRACK API ENDPOINTS
+// AuraCare API ENDPOINTS
 // ==========================================
 
 // 1. The Queue (First-In, First-Out Tasks)

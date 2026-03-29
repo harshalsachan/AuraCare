@@ -66,7 +66,7 @@ const Login = () => {
           <div className="mx-auto w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4">
             <HeartPulse className="w-8 h-8 text-blue-600" />
           </div>
-          <h2 className="text-3xl font-bold text-slate-800">VitalTrack</h2>
+          <h2 className="text-3xl font-bold text-slate-800">AuraCare</h2>
           <p className="text-slate-500 mt-2">
             {isRegistering ? 'Create your caretaker portal account' : 'Sign in to your caretaker portal'}
           </p>
@@ -117,7 +117,7 @@ const Login = () => {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                placeholder="dr.smith@vitaltrack.com"
+                placeholder="dr.smith@AuraCare.com"
               />
             </div>
           </div>
