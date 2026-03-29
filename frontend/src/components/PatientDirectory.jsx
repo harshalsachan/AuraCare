@@ -15,7 +15,8 @@ const PatientDirectory = () => {
   useEffect(() => {
     const fetchPatients = async () => {
       try {
-const response = await axios.get(`http://localhost:5000/api/patients?caretaker_id=${user.id}`);
+        const API_URL = import.meta.env.VITE_API_URL || 'https://auracure-backend.onrender.com/api';
+        const response = await axios.get(`${API_URL}/patients?caretaker_id=${user.id}`);
         setPatients(response.data);
       } catch (err) {
         console.error("Failed to fetch directory", err);
@@ -24,7 +25,7 @@ const response = await axios.get(`http://localhost:5000/api/patients?caretaker_i
       }
     };
     fetchPatients();
-  }, []);
+  }, [user.id]);
 
   // Filter patients based on the search bar
   const filteredPatients = patients.filter(p => 

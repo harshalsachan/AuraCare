@@ -24,16 +24,16 @@ const AddPatient = () => {
     e.preventDefault();
     setIsLoading(true);
     setStatus({ type: '', message: '' });
-
+    const API_URL = import.meta.env.VITE_API_URL || 'https://auracure-backend.onrender.com/api';
     try {
       // Send the data directly to our new Python endpoint
-     await axios.post('http://localhost:5000/api/patients', {
-  id: parseInt(patientId),
-  name: name,
-  age: parseInt(age),
-  riskScore: parseInt(riskScore),
-  caretakerId: user.id // <--- SEND THE ID
-});
+     await axios.post(`${API_URL}/patients`, {
+        id: parseInt(patientId),
+        name: name,
+        age: parseInt(age),
+        riskScore: parseInt(riskScore),
+        caretakerId: user.id 
+      });
 
 
       setStatus({ type: 'success', message: `${name} has been added to the system.` });

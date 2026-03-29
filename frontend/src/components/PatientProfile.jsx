@@ -15,9 +15,10 @@ const PatientProfile = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   useEffect(() => {
-    const fetchPatientData = async () => {
+   const fetchPatientData = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/patients/${id}`);
+        const API_URL = import.meta.env.VITE_API_URL || 'https://auracure-backend.onrender.com/api';
+        const response = await axios.get(`${API_URL}/patients/${id}`);
         setPatient(response.data);
       } catch (err) {
         console.error(err);
