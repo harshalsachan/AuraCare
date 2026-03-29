@@ -2,8 +2,10 @@ import axios from 'axios';
 
 // Create a configured Axios instance
 // In development, this points to your friend's Python Flask/FastAPI server
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+
 const API = axios.create({
-  baseURL: 'http://localhost:5000/api', // Make sure this matches the Python port
+  baseURL: API_URL, // Make sure this matches the Python port
   headers: {
     'Content-Type': 'application/json',
   },

@@ -1,6 +1,7 @@
 import ctypes
 import os
 import sqlite3
+import platform
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -9,7 +10,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"], 
+    allow_origins=["*"], # We will lock this down to your Vercel URL later
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,12 +104,21 @@ def login_caretaker(caretaker: CaretakerLogin):
 
 
 # ==========================================
-# 3. C++ ENGINE BRIDGE & HYDRATION
+# 3. C++ ENGINE BRIDGE (CLOUD & LOCAL COMPATIBLE)
 # ==========================================
-dll_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'cpp_engine', 'engine.dll'))
+# Dynamically load .dll for Windows or .so for Linux (Render)
+is_windows = platform.system() == "Windows"
+lib_ext = "dll" if is_windows else "so"
+
+if is_windows:
+    # Local Windows path
+    engine_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'cpp_engine', f'engine.{lib_ext}'))
+else:
+    # Render Linux path (build.sh puts it directly in the backend folder)
+    engine_path = os.path.join(os.path.dirname(__file__), f'engine.{lib_ext}')
 
 try:
-    cpp_engine = ctypes.cdll.LoadLibrary(dll_path)
+    cpp_engine = ctypes.cdll.LoadLibrary(engine_path)
     cpp_engine.get_patient_name.restype = ctypes.c_char_p
     cpp_engine.get_patient_risk.restype = ctypes.c_int
     cpp_engine.get_patient_age.restype = ctypes.c_int
@@ -143,7 +153,6 @@ except Exception as e:
 def get_all_patients(caretaker_id: int):
     conn = get_db()
     cursor = conn.cursor()
-    # ONLY fetch patients belonging to the logged-in doctor
     cursor.execute("SELECT id, name, age, risk_score FROM patients WHERE caretaker_id = ? ORDER BY name ASC", (caretaker_id,))
     patients = [{"id": row["id"], "name": row["name"], "age": row["age"], "riskScore": row["risk_score"]} for row in cursor.fetchall()]
     conn.close()
@@ -176,7 +185,6 @@ def get_high_risk_alerts(caretaker_id: int):
     
     for i in range(count):
         p_id = out_ids[i]
-        # Security Check: Does this high-risk patient belong to this caretaker?
         cursor.execute("SELECT id FROM patients WHERE id = ? AND caretaker_id = ?", (p_id, caretaker_id))
         if cursor.fetchone():
             score = cpp_engine.get_patient_risk(p_id)
@@ -197,7 +205,6 @@ def get_patient_profile(patient_id: int):
 
 @app.get("/api/tasks")
 def get_waiting_room_tasks(caretaker_id: int):
-    # Fetch from SQLite to ensure isolation
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("SELECT id, patient_name, description, time FROM tasks WHERE caretaker_id = ? ORDER BY id ASC", (caretaker_id,))
@@ -219,17 +226,14 @@ def create_new_task(task: NewTask):
 
 @app.post("/api/tasks/complete")
 def complete_front_task(task_id: int):
-    # Pass the task ID so we delete the right one from the DB
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
     conn.commit()
     conn.close()
-    # Pop front of C++ queue to keep memory sync
     cpp_engine.complete_task()
     return {"message": "Task dequeued"}
 
-# AI Route remains unchanged...
 @app.post("/api/ai/predict-risk")
 def predict_future_risk(history: PatientHistory):
     x, y, n = history.days, history.mobility_scores, len(history.days)
