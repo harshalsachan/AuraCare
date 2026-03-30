@@ -31,10 +31,11 @@ const LogVitalsForm = ({ patientId, onNewReading }) => {
       setDiaBp('');
       setHeartRate('');
       
+     
       if (response.data.alert) {
         setAiAlert(response.data.alert);
       } else {
-        setSuccess('Vitals logged successfully. Patient is stable.');
+        setSuccess(response.data.message);
       }
 
       if (onNewReading) onNewReading();

@@ -277,11 +277,11 @@ def predict_future_risk(patient_id: int):
     slope = 0 if denominator == 0 else ((n * sum_xy) - (sum_x * sum_y)) / denominator
     intercept = (sum_y - (slope * sum_x)) / n
     
-    # Predict tomorrow's BP
+   
     next_day = x[-1] + 1
     predicted_bp = (slope * next_day) + intercept
     
-    # Analyze the slope (A rising BP slope is dangerous)
+    
     warning = "CRITICAL: Rapid BP Spike Trajectory" if slope > 5 else "Warning: Upward BP Trend" if slope > 0 else "Stable Trajectory"
     
     return {
@@ -303,30 +303,44 @@ def log_daily_reading(reading: DailyReading):
         VALUES (?, ?, ?, ?)
     """, (reading.patientId, reading.sysBp, reading.diaBp, reading.heartRate))
     
-    cursor.execute("""
-        SELECT sys_bp FROM daily_vitals 
-        WHERE patient_id = ? ORDER BY date DESC LIMIT 4
-    """, (reading.patientId,))
-    history = cursor.fetchall()
-    
     alert_triggered = None
     
-    if len(history) >= 4:
-        past_sys_bps = [row['sys_bp'] for row in history[1:4]] 
-        avg_past_sys = mean(past_sys_bps)
+  
+    if reading.sysBp >= 180 or reading.diaBp >= 120:
+        alert_triggered = f"CRITICAL: Hypertensive Crisis ({reading.sysBp}/{reading.diaBp}). Immediate attention required!"
+    elif reading.sysBp >= 140 or reading.diaBp >= 90:
+        alert_triggered = f"WARNING: Stage 2 Hypertension detected ({reading.sysBp}/{reading.diaBp})."
+    elif reading.sysBp < 90 or reading.diaBp < 60:
+        alert_triggered = f"WARNING: Hypotension (Low BP) detected ({reading.sysBp}/{reading.diaBp})."
+    elif reading.heartRate > 100:
+        alert_triggered = f"WARNING: Tachycardia. High resting heart rate ({reading.heartRate} BPM)."
+    elif reading.heartRate < 60:
+        alert_triggered = f"WARNING: Bradycardia. Low resting heart rate ({reading.heartRate} BPM)."
+
+   
+    if not alert_triggered:
+        cursor.execute("SELECT sys_bp FROM daily_vitals WHERE patient_id = ? ORDER BY date DESC LIMIT 4", (reading.patientId,))
+        history = cursor.fetchall()
         
-        if reading.sysBp >= (avg_past_sys * 1.10):
-            alert_triggered = f"AI ALERT: 10% BP Spike Detected. Jumped from baseline ~{int(avg_past_sys)} to {reading.sysBp} mmHg."
+        if len(history) >= 4:
+            past_sys_bps = [row['sys_bp'] for row in history[1:4]] 
+            avg_past_sys = sum(past_sys_bps) / len(past_sys_bps)
             
-            cursor.execute("INSERT INTO alerts (patient_id, alert_level, message) VALUES (?, ?, ?)",
-                           (reading.patientId, "Critical", alert_triggered))
-            
-            cursor.execute("UPDATE patients SET risk_score = risk_score + 15 WHERE id = ?", (reading.patientId,))
+            if reading.sysBp >= (avg_past_sys * 1.10):
+                alert_triggered = f"AI TREND ALERT: 10% BP Spike. Jumped from baseline ~{int(avg_past_sys)} to {reading.sysBp} mmHg."
+
+    
+    if alert_triggered:
+        cursor.execute("INSERT INTO alerts (patient_id, alert_level, message) VALUES (?, ?, ?)",
+                       (reading.patientId, "Critical" if "CRITICAL" in alert_triggered else "Warning", alert_triggered))
 
     conn.commit()
     conn.close()
     
+    
+    success_msg = f"Vitals logged ({reading.sysBp}/{reading.diaBp}, HR: {reading.heartRate}). Patient is stable."
+    
     return {
-        "message": "Vitals logged successfully.",
+        "message": success_msg,
         "alert": alert_triggered
     }
